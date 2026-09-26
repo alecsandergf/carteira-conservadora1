@@ -331,18 +331,21 @@ footer{margin-top:30px; color:var(--muted); font-size:12.5px; line-height:1.6; t
 /* ---------- print ---------- */
 #printArea{display:none;}
 @media print{
-  body *{visibility:hidden;}
-  #printArea, #printArea *{visibility:visible;}
-  #printArea{display:block; position:absolute; inset:0; padding:40px;}
+  html, body{height:auto !important; overflow:visible !important;}
+  .wrap{display:none !important;}
+  #printArea{display:block !important; position:static !important; padding:0; width:100%; overflow:visible;}
   .print-h1{font-family:'Fraunces',Georgia,serif; font-size:24px; font-weight:600; margin-bottom:4px;}
   .print-sub{font-size:13px; color:#666; margin-bottom:20px;}
   .print-table{width:100%; border-collapse:collapse; font-size:13px; font-family:'Inter',sans-serif;}
   .print-table th{text-align:left; font-size:11px; text-transform:uppercase; color:#666; padding:8px 10px; border-bottom:2px solid #ddd;}
   .print-table td{padding:8px 10px; border-bottom:1px solid #eee;}
-  .print-table .cls-row td{font-weight:600; background:#f5f5f5;}
+  .print-table .cls-row td{font-weight:600; background:#f5f5f5; break-inside:avoid;}
+  .print-table tr{break-inside:avoid;}
+  .print-table thead{display:table-header-group;}
+  .print-table tfoot{display:table-footer-group;}
   .print-table .num{text-align:right;}
   .print-table tfoot td{font-weight:700; border-top:2px solid #333; border-bottom:none;}
   .print-dot{width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:6px; vertical-align:middle;}
-  .print-footer{margin-top:30px; font-size:11px; color:#999; line-height:1.5;}
+  .print-footer{margin-top:30px; font-size:11px; color:#999; line-height:1.5; break-inside:avoid;}
   @page{margin:2cm;}
 }
