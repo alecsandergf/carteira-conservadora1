@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alocação de Referência</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="app.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div class="header-top">
+      <div>
+        <h1>Alocação de Referência</h1>
+        <p>Monte sua carteira a partir de um modelo de referência. Você escolhe os ativos, a ferramenta cuida dos percentuais.</p>
+      </div>
+      <div class="header-actions">
+        <span class="mode-badge" id="modeBadge" title="Alternar modo (Admin/Cliente)"></span>
+        <button class="icon-btn" id="themeBtn" title="Alternar tema" aria-label="Alternar tema"><i data-lucide="sun-moon"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main id="app"></main>
+
+  <footer>
+    Alocação de referência — não é recomendação de investimento personalizada. Revise sempre seu perfil de risco antes de aplicar.
+  </footer>
+</div>
+
+<!-- área limpa só para impressão / PDF -->
+<div id="printArea" aria-hidden="true"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
