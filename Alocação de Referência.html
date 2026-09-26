@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alocação de Referência</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFF2F0; --panel:#FFFFFF; --ink:#16232A; --muted:#5B6B70; --line:#DDE3E0; --gold:#B8935F;
+    --c-cripto:#E0833A; --c-renda:#3E8361; --c-brasil:#2E5C8A; --c-eua:#6B5B95; --c-metais:#B8935F;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --bg:#12191B; --panel:#1B2426; --ink:#EDEFEC; --muted:#9AA6A3; --line:#2C3638; }
+  }
+  :root[data-theme="dark"]{ --bg:#12191B; --panel:#1B2426; --ink:#EDEFEC; --muted:#9AA6A3; --line:#2C3638; }
+  *{box-sizing:border-box;}
+  html{scroll-padding-top:env(safe-area-inset-top,0px);}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:'Inter',system-ui,-apple-system,sans-serif;
+    padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  }
+  h1,h2,h3{font-family:'Fraunces',Georgia,serif; font-weight:600; margin:0;}
+  .wrap{max-width:960px; margin:0 auto; padding:36px 20px 80px;}
+  header p{color:var(--muted); margin-top:8px; max-width:64ch; line-height:1.5; font-size:15px;}
+  header h1{font-size:clamp(26px,4vw,34px); letter-spacing:-0.01em;}
+
+  section{margin-top:38px;}
+  .sec-title{display:flex; align-items:baseline; gap:10px; margin-bottom:14px; flex-wrap:wrap;}
+  .sec-title h2{font-size:18px;}
+  .sec-title span{color:var(--muted); font-size:13px;}
+
+  .example-card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:22px 24px;
+    display:grid; grid-template-columns:140px 1fr; gap:24px; align-items:center;
+  }
+  @media (max-width:600px){ .example-card{grid-template-columns:1fr;} }
+  .mini-static{width:120px; height:120px; border-radius:50%; margin:0 auto;}
+  .ex-row{display:grid; grid-template-columns:11px 1fr auto; gap:9px; align-items:baseline; padding:6px 0;}
+  .ex-row .dot{width:11px; height:11px; border-radius:3px; align-self:center;}
+  .ex-row .nm{font-size:14px; font-weight:600;}
+  .ex-row .pc{font-size:14px; font-weight:600; color:var(--muted);}
+  .ex-assets{grid-column:2/4; color:var(--muted); font-size:12.5px; margin:-2px 0 6px; line-height:1.5;}
+
+  .board{
+    display:grid; grid-template-columns:270px 1fr; gap:32px;
+    background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:26px; align-items:start;
+  }
+  @media (max-width:680px){ .board{grid-template-columns:1fr;} }
+  .pie-holder{display:flex; flex-direction:column; align-items:center; gap:12px;}
+  .pie{width:220px; height:220px; border-radius:50%; position:relative; cursor:pointer; box-shadow:0 0 0 1px var(--line) inset; transition:transform .15s ease;}
+  .pie:hover{transform:scale(1.015);}
+  .pie-center{position:absolute; inset:22%; background:var(--panel); border-radius:50%; display:flex; align-items:center; justify-content:center; pointer-events:none;}
+  .hint{font-size:12px; color:var(--muted); text-align:center;}
+
+  .legend{display:flex; flex-direction:column; gap:9px;}
+  .row{display:grid; grid-template-columns:14px 1fr 62px 22px; align-items:center; gap:10px; padding:9px 11px; border-radius:9px; border:1px solid transparent; cursor:pointer;}
+  .row:hover{background:var(--bg); border-color:var(--line);}
+  .row.active{background:var(--bg); border-color:var(--gold);}
+  .row.readonly{grid-template-columns:14px 1fr auto 22px; cursor:pointer;}
+  .dot{width:14px; height:14px; border-radius:4px;}
+  .row .name{font-size:14.5px; font-weight:500;}
+  .row .name small{display:block; color:var(--muted); font-weight:400; font-size:11.5px;}
+  .row input{width:58px; text-align:right; font:inherit; font-size:14px; font-weight:600; background:transparent; border:1px solid var(--line); border-radius:6px; padding:5px 6px; color:var(--ink);}
+  .row input:focus{outline:2px solid var(--gold); outline-offset:1px; border-color:transparent;}
+  .row .pct{font-size:14px; font-weight:600; color:var(--muted);}
+  .row .arrow{color:var(--muted); font-size:13px; text-align:center;}
+
+  .sumline{display:flex; justify-content:space-between; align-items:center; margin-top:4px; padding:9px 11px; font-size:13px; color:var(--muted); flex-wrap:wrap; gap:8px;}
+  .sumline.off b{color:#B84A3E;}
+  .rebalance{border:none; background:var(--ink); color:var(--bg); font:inherit; font-weight:600; font-size:12.5px; padding:7px 13px; border-radius:7px; cursor:pointer;}
+  .rebalance:hover{opacity:.85;}
+
+  .detail{margin-top:22px; border-top:1px solid var(--line); padding-top:22px;}
+  .detail-head{display:flex; align-items:baseline; gap:10px; margin-bottom:16px;}
+  .detail-head h2{font-size:19px;}
+  .detail-head span{color:var(--muted); font-size:13px;}
+  .detail-grid{display:grid; grid-template-columns:150px 1fr; gap:26px; align-items:start;}
+  @media (max-width:560px){ .detail-grid{grid-template-columns:1fr;} }
+  .mini-pie{width:130px; height:130px; border-radius:50%; margin:0 auto;}
+  .empty{color:var(--muted); font-size:13.5px; padding:8px 2px;}
+
+  .sub-row{display:grid; grid-template-columns:14px 1fr 58px; align-items:center; gap:9px; padding:7px 8px; border-radius:8px;}
+  .sub-row:hover{background:var(--bg);}
+  .sub-row .nm{font-size:14px;}
+  .sub-row input{width:54px; text-align:right; font:inherit; font-size:13.5px; font-weight:600; background:transparent; border:1px solid var(--line); border-radius:6px; padding:4px 5px; color:var(--ink);}
+
+  .sel-row{display:grid; grid-template-columns:1fr 58px 24px; align-items:center; gap:8px; padding:7px 8px; border-radius:8px;}
+  .sel-row:hover{background:var(--bg);}
+  .sel-row .nm{font-size:14px;}
+  .sel-row input{width:54px; text-align:right; font:inherit; font-size:13.5px; font-weight:600; background:transparent; border:1px solid var(--line); border-radius:6px; padding:4px 5px; color:var(--ink);}
+  .sel-row .rm{border:none; background:none; color:var(--muted); cursor:pointer; font-size:16px; line-height:1;}
+  .sel-row .rm:hover{color:#B84A3E;}
+
+  .groupblock{margin-top:16px;}
+  .groupblock h4{font-size:12.5px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.04em; margin-bottom:8px;}
+  .chips{display:flex; flex-wrap:wrap; gap:8px;}
+  .chip{display:inline-flex; align-items:center; gap:6px; padding:7px 12px; border-radius:20px; border:1px solid var(--line); background:var(--panel); font-size:13px; cursor:pointer; color:var(--ink); font-family:inherit;}
+  .chip:hover{border-color:var(--gold);}
+  .chip.picked{background:var(--ink); color:var(--bg); border-color:var(--ink);}
+
+  footer{margin-top:30px; color:var(--muted); font-size:12.5px; line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Alocação sugerida por classe, você escolhe os ativos</h1>
+    <p>Três passos: 1) o percentual por classe é a recomendação. 2) dentro de cada classe, mostro como esse percentual se divide entre sub-classes de ativos (sem indicar um ativo específico). 3) mais abaixo, a pessoa monta a própria carteira escolhendo livremente entre os ativos sugeridos de cada sub-classe.</p>
+  </header>
+
+  <section id="refSection">
+    <div class="sec-title"><h2>Minha alocação de referência</h2><span>edite os percentuais; clique numa classe para ver a divisão por sub-classe</span></div>
+    <div class="board">
+      <div class="pie-holder">
+        <div class="pie" id="refPie"><div class="pie-center"></div></div>
+        <div class="hint">Clique numa fatia para ver as sub-classes</div>
+      </div>
+      <div>
+        <div class="legend" id="refLegend"></div>
+        <div class="sumline" id="refSumline">
+          <span>Total das classes: <b id="refSumVal">100</b>%</span>
+          <button class="rebalance" id="refRebalanceBtn">Equilibrar para 100%</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="detail" id="subDetail" style="display:none;">
+      <div class="detail-head"><h2 id="subDetailTitle"></h2><span id="subDetailSub"></span></div>
+      <div class="detail-grid">
+        <div class="mini-pie" id="subMiniPie"></div>
+        <div>
+          <div id="subList"></div>
+          <div class="sumline" id="subDetailSumline">
+            <span>Subtotal: <b id="subDetailSumVal">100</b>%</span>
+            <button class="rebalance" id="subDetailRebalanceBtn">Equilibrar para 100%</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="exampleSection">
+    <div class="sec-title"><h2>Exemplo de preenchimento</h2><span>ilustrativo — a escolha dos ativos é da pessoa</span></div>
+    <button class="rebalance" id="toggleExampleBtn" style="margin-bottom:14px;">Ver exemplo</button>
+    <div class="example-card" id="exampleCard" style="display:none;">
+      <div class="mini-static" id="examplePie"></div>
+      <div id="exampleLegend"></div>
+    </div>
+  </section>
+
+  <section id="builderSection">
+    <div class="sec-title"><h2>Monte a sua carteira</h2><span>clique numa classe para escolher os ativos dentro dela</span></div>
+    <div class="board">
+      <div class="pie-holder">
+        <div class="pie" id="mainPie"><div class="pie-center"></div></div>
+        <div class="hint">Clique numa fatia para escolher os ativos</div>
+      </div>
+      <div>
+        <div class="legend" id="legend"></div>
+        <div class="sumline"><span>Segue a alocação de referência acima</span></div>
+      </div>
+    </div>
+
+    <div class="detail" id="detail" style="display:none;">
+      <div class="detail-head"><h2 id="detailTitle"></h2><span id="detailSub"></span></div>
+      <div class="detail-grid">
+        <div class="mini-pie" id="miniPie"></div>
+        <div>
+          <div id="selList"></div>
+          <div class="sumline" id="subSumline">
+            <span>Subtotal escolhido: <b id="subSumVal">0</b>%</span>
+            <button class="rebalance" id="subRebalanceBtn">Equilibrar para 100%</button>
+          </div>
+        </div>
+      </div>
+      <div id="groupsHolder"></div>
+    </div>
+  </section>
+
+  <footer>Alocação de referência, não é recomendação de investimento personalizada. Revise sempre seu perfil de risco antes de aplicar.</footer>
+</div>
+
+<script>
+/* ---------- dados compartilhados ---------- */
+const classes = [
+  {key:'cripto', name:'Criptomoedas', value:10, color:'var(--c-cripto)'},
+  {key:'renda', name:'Renda fixa', value:40, color:'var(--c-renda)'},
+  {key:'brasil', name:'Ações Brasil', value:20, color:'var(--c-brasil)'},
+  {key:'eua', name:'Ações americanas', value:15, color:'var(--c-eua)'},
+  {key:'commodities', name:'Commodities', value:15, color:'var(--c-metais)'}
+];
+const subclasses = {
+  cripto: [
+    {name:'Classe 1 — Principais', value:40},
+    {name:'Classe 2 — Alternativas líquidas', value:30},
+    {name:'Classe 3 — Outras altcoins', value:20},
+    {name:'Classe 4 — Caixa/stable', value:10}
+  ],
+  renda: [
+    {name:'Classe 1 — Bancário', value:40},
+    {name:'Classe 2 — Público', value:30},
+    {name:'Classe 3 — Crédito privado', value:15},
+    {name:'Classe 4 — Caixa', value:15}
+  ],
+  brasil: [
+    {name:'Classe 1 — Bancos', value:25},
+    {name:'Classe 2 — Commodities/industriais', value:35},
+    {name:'Classe 3 — Consumo/outros', value:30},
+    {name:'Classe 4 — Caixa', value:10}
+  ],
+  eua: [
+    {name:'Classe 1 — Índices (ETFs)', value:55},
+    {name:'Classe 2 — Big techs', value:35},
+    {name:'Classe 3 — Caixa', value:10}
+  ],
+  commodities: [
+    {name:'Classe 1 — Metais preciosos', value:40},
+    {name:'Classe 2 — Energia', value:35},
+    {name:'Classe 3 — Agrícolas/industriais', value:15},
+    {name:'Classe 4 — Caixa', value:10}
+  ]
+};
+const groups = {
+  cripto: [
+    {label:'Classe 1 — Principais', assets:['Bitcoin','Ethereum']},
+    {label:'Classe 2 — Alternativas líquidas', assets:['Solana','XRP','Polkadot']},
+    {label:'Classe 3 — Outras altcoins', assets:['BNB','Cardano']},
+    {label:'Classe 4 — Caixa / stable', assets:['USDT']}
+  ],
+  renda: [
+    {label:'Classe 1 — Bancário', assets:['CDB','LCI','LCA']},
+    {label:'Classe 2 — Público', assets:['Tesouro Selic','Tesouro IPCA+']},
+    {label:'Classe 3 — Crédito privado', assets:['CRI/CRA']},
+    {label:'Classe 4 — Caixa', assets:['Liquidez diária']}
+  ],
+  brasil: [
+    {label:'Classe 1 — Bancos', assets:['Banco do Brasil','Itaú Unibanco']},
+    {label:'Classe 2 — Commodities/industriais', assets:['Petrobras','Vale','Suzano']},
+    {label:'Classe 3 — Consumo/outros', assets:['Caixa Seguridade','WEG','Ambev']},
+    {label:'Classe 4 — Caixa', assets:['Liquidez']}
+  ],
+  eua: [
+    {label:'Classe 1 — Índices (ETFs)', assets:['ETF S&P 500','ETF Nasdaq 100']},
+    {label:'Classe 2 — Big techs', assets:['Apple','Microsoft','Alphabet (Google)','Amazon']},
+    {label:'Classe 3 — Caixa', assets:['Caixa (USD)']}
+  ],
+  commodities: [
+    {label:'Classe 1 — Metais preciosos', assets:['Ouro','Prata','Platina','Paládio']},
+    {label:'Classe 2 — Energia', assets:['Petróleo','Gás Natural']},
+    {label:'Classe 3 — Agrícolas/industriais', assets:['Cobre','Milho','Soja','Café']},
+    {label:'Classe 4 — Caixa', assets:['Liquidez']}
+  ]
+};
+const picks = {cripto:[], renda:[], brasil:[], eua:[], commodities:[]};
+let activeRefKey = null;
+let activeKey = null;
+
+/* ---------- utilidades ---------- */
+function paintPie(el, items){
+  let acc=0, stops=[];
+  items.forEach(it=>{ const s=acc, e=acc+Math.max(it.value,0); stops.push(`${it.color} ${s*3.6}deg ${e*3.6}deg`); acc=e; });
+  el.style.background = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--line)';
+}
+function paintShaded(el, items, baseColor){
+  let acc=0, stops=[];
+  items.forEach((it,i)=>{
+    const s=acc, e=acc+Math.max(it.value,0);
+    const alpha = 1 - i*(0.55/Math.max(items.length-1,1));
+    stops.push(`color-mix(in srgb, ${baseColor} ${alpha*100}%, white) ${s*3.6}deg ${e*3.6}deg`);
+    acc=e;
+  });
+  el.style.background = stops.length ? `conic-gradient(${stops.join(',')})` : 'var(--line)';
+}
+function attachClick(el, items, onPick){
+  el.onclick = (e)=>{
+    const r = el.getBoundingClientRect();
+    const dx = e.clientX-(r.left+r.width/2), dy = e.clientY-(r.top+r.height/2);
+    let deg = Math.atan2(dy,dx)*180/Math.PI + 90; if(deg<0) deg+=360;
+    let acc=0;
+    for(let i=0;i<items.length;i++){ const end=acc+Math.max(items[i].value,0); if(deg>=acc*3.6 && deg<end*3.6){ onPick(i); return; } acc=end; }
+  };
+}
+function sumline(items, valId, lineId){
+  const total = items.reduce((s,i)=>s+Number(i.value||0),0);
+  document.getElementById(valId).textContent = Math.round(total);
+  document.getElementById(lineId).classList.toggle('off', Math.round(total)!==100);
+}
+
+/* ---------- 1) referência por classe ---------- */
+function renderRef(){
+  paintPie(document.getElementById('refPie'), classes);
+  attachClick(document.getElementById('refPie'), classes, i=>openSubDetail(classes[i].key));
+  const legend = document.getElementById('refLegend');
+  legend.innerHTML='';
+  classes.forEach(c=>{
+    const row = document.createElement('div');
+    row.className = 'row' + (activeRefKey===c.key ? ' active':'');
+    row.innerHTML = `<div class="dot" style="background:${c.color}"></div>
+      <div class="name">${c.name}</div>
+      <input type="number" min="0" max="100" step="1" value="${c.value}">
+      <div class="arrow">›</div>`;
+    const input = row.querySelector('input');
+    input.addEventListener('input', ()=>{
+      c.value = Math.max(0,Math.min(100,Number(input.value)||0));
+      renderRef(); renderBuilder(); if(activeRefKey===c.key) renderSubDetail();
+    });
+    input.addEventListener('click', e=>e.stopPropagation());
+    row.addEventListener('click', ()=>openSubDetail(c.key));
+    legend.appendChild(row);
+  });
+  sumline(classes, 'refSumVal', 'refSumline');
+}
+function openSubDetail(key){
+  activeRefKey = key;
+  document.getElementById('subDetail').style.display = 'block';
+  renderRef();
+  renderSubDetail();
+  document.getElementById('subDetail').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function renderSubDetail(){
+  const cls = classes.find(c=>c.key===activeRefKey);
+  const subs = subclasses[activeRefKey];
+  document.getElementById('subDetailTitle').textContent = cls.name;
+  document.getElementById('subDetailSub').textContent = `${cls.value}% da carteira total, dividido por sub-classe`;
+  paintShaded(document.getElementById('subMiniPie'), subs, cls.color);
+  const list = document.getElementById('subList');
+  list.innerHTML='';
+  subs.forEach((s,i)=>{
+    const alpha = 1 - i*(0.55/Math.max(subs.length-1,1));
+    const row = document.createElement('div');
+    row.className='sub-row';
+    row.innerHTML = `<div class="dot" style="background:${cls.color}; opacity:${alpha}"></div><span class="nm">${s.name}</span><input type="number" min="0" max="100" value="${s.value}">`;
+    row.querySelector('input').addEventListener('input', e=>{
+      s.value = Math.max(0,Math.min(100,Number(e.target.value)||0));
+      renderSubDetail();
+    });
+    list.appendChild(row);
+  });
+  sumline(subs, 'subDetailSumVal', 'subDetailSumline');
+}
+document.getElementById('refRebalanceBtn').addEventListener('click', ()=>{
+  const total = classes.reduce((s,c)=>s+Number(c.value||0),0) || 1;
+  classes.forEach(c=> c.value = Math.round(c.value/total*100));
+  const diff = 100 - classes.reduce((s,c)=>s+c.value,0);
+  classes[0].value += diff;
+  renderRef(); renderBuilder(); if(activeRefKey) renderSubDetail();
+});
+document.getElementById('subDetailRebalanceBtn').addEventListener('click', ()=>{
+  if(!activeRefKey) return;
+  const subs = subclasses[activeRefKey];
+  const total = subs.reduce((s,i)=>s+Number(i.value||0),0) || 1;
+  subs.forEach(s=> s.value = Math.round(s.value/total*100));
+  const diff = 100 - subs.reduce((s,i)=>s+i.value,0);
+  subs[0].value += diff;
+  renderSubDetail();
+});
+
+/* ---------- exemplo estático ---------- */
+const example = [
+  {name:'Criptomoedas', value:10, color:'var(--c-cripto)', sub:'Bitcoin 35% · USDT 30% · Ethereum 15% · Solana 8% · XRP 5% · BNB 4% · Cardano 3%'},
+  {name:'Renda fixa', value:40, color:'var(--c-renda)', sub:'CDB 30% · Tesouro Selic 20% · LCI 15% · Caixa 10% · LCA 10% · Tesouro IPCA+ 10% · CRI/CRA 5%'},
+  {name:'Ações Brasil', value:20, color:'var(--c-brasil)', sub:'Caixa Seguridade 22% · Petrobras 13% · Vale 13% · Suzano 12% · BB 12% · Itaú 10% · Caixa 8% · WEG 6% · Ambev 4%'},
+  {name:'Ações americanas', value:15, color:'var(--c-eua)', sub:'ETF S&P 500 27% · ETF Nasdaq 100 25% · Apple 12% · Microsoft 12% · Google 10% · Caixa 8% · Amazon 6%'},
+  {name:'Commodities', value:15, color:'var(--c-metais)', sub:'Ouro 30% · Petróleo 17% · Prata 10% · Gás Natural 10% · Cobre 8% · Caixa 8% · Platina 5% · Milho 4% · Soja 3% · Paládio 3% · Café 2%'}
+];
+paintPie(document.getElementById('examplePie'), example);
+const exLegend = document.getElementById('exampleLegend');
+example.forEach(c=>{
+  exLegend.innerHTML += `<div class="ex-row"><span class="dot" style="background:${c.color}"></span><span class="nm">${c.name}</span><span class="pc">${c.value}%</span></div>
+  <div class="ex-assets">${c.sub}</div>`;
+});
+document.getElementById('toggleExampleBtn').addEventListener('click', ()=>{
+  const card = document.getElementById('exampleCard');
+  const btn = document.getElementById('toggleExampleBtn');
+  const showing = card.style.display !== 'none';
+  card.style.display = showing ? 'none' : 'grid';
+  btn.textContent = showing ? 'Ver exemplo' : 'Esconder exemplo';
+});
+
+/* ---------- 3) a pessoa monta a carteira ---------- */
+function renderBuilder(){
+  paintPie(document.getElementById('mainPie'), classes);
+  attachClick(document.getElementById('mainPie'), classes, i=>openAssetDetail(classes[i].key));
+  const legend = document.getElementById('legend');
+  legend.innerHTML='';
+  classes.forEach(c=>{
+    const row = document.createElement('div');
+    row.className = 'row readonly' + (activeKey===c.key ? ' active':'');
+    row.innerHTML = `<div class="dot" style="background:${c.color}"></div>
+      <div class="name">${c.name}<small>${picks[c.key].length} ativo(s) escolhido(s)</small></div>
+      <div class="pct">${c.value}%</div>
+      <div class="arrow">›</div>`;
+    row.addEventListener('click', ()=>openAssetDetail(c.key));
+    legend.appendChild(row);
+  });
+}
+function openAssetDetail(key){
+  activeKey = key;
+  document.getElementById('detail').style.display = 'block';
+  renderBuilder();
+  renderAssetDetail();
+  document.getElementById('detail').scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function renderAssetDetail(){
+  const cls = classes.find(c=>c.key===activeKey);
+  const sel = picks[activeKey];
+  document.getElementById('detailTitle').textContent = cls.name;
+  document.getElementById('detailSub').textContent = `${cls.value}% da carteira total`;
+
+  const mini = document.getElementById('miniPie');
+  if(sel.length===0){ mini.style.background='var(--line)'; }
+  else paintPie(mini, sel.map(s=>({...s, color:cls.color})));
+
+  const selList = document.getElementById('selList');
+  if(sel.length===0){
+    selList.innerHTML = `<div class="empty">Nenhum ativo escolhido ainda. Use as sugestões abaixo.</div>`;
+  } else {
+    selList.innerHTML='';
+    sel.forEach((s,i)=>{
+      const row = document.createElement('div');
+      row.className='sel-row';
+      row.innerHTML = `<span class="nm">${s.name}</span><input type="number" min="0" max="100" value="${s.value}"><button class="rm" title="Remover">×</button>`;
+      row.querySelector('input').addEventListener('input', e=>{ s.value = Math.max(0,Math.min(100,Number(e.target.value)||0)); renderAssetDetail(); });
+      row.querySelector('.rm').addEventListener('click', ()=>{ sel.splice(i,1); renderBuilder(); renderAssetDetail(); });
+      selList.appendChild(row);
+    });
+  }
+  sumline(sel, 'subSumVal', 'subSumline');
+
+  const holder = document.getElementById('groupsHolder');
+  holder.innerHTML='';
+  groups[activeKey].forEach(g=>{
+    const block = document.createElement('div');
+    block.className='groupblock';
+    const chipsHtml = g.assets.map(a=>{
+      const active = sel.some(s=>s.name===a);
+      return `<button class="chip${active?' picked':''}" data-a="${a}">${active?'✓ ':'+ '}${a}</button>`;
+    }).join('');
+    block.innerHTML = `<h4>${g.label}</h4><div class="chips">${chipsHtml}</div>`;
+    holder.appendChild(block);
+  });
+  holder.querySelectorAll('.chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const name = chip.dataset.a;
+      const idx = sel.findIndex(s=>s.name===name);
+      if(idx>-1) sel.splice(idx,1); else sel.push({name, value:0});
+      renderBuilder(); renderAssetDetail();
+    });
+  });
+}
+document.getElementById('subRebalanceBtn').addEventListener('click', ()=>{
+  if(!activeKey) return;
+  const sel = picks[activeKey];
+  if(sel.length===0) return;
+  const total = sel.reduce((s,i)=>s+Number(i.value||0),0) || 1;
+  sel.forEach(s=> s.value = Math.round(s.value/total*100));
+  const diff = 100 - sel.reduce((s,i)=>s+i.value,0);
+  sel[0].value += diff;
+  renderAssetDetail();
+});
+
+renderRef();
+renderBuilder();
+</script>
+</body>
+</html>
