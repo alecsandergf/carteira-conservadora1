@@ -56,8 +56,12 @@ let model = { classes: [] };
 let client = { totalValue: 0, picks: {} };
 let mode = 'client';
 let activeClassId = null;
+let activeRefClassId = null;
 let expandedAdmin = {};
 let charts = {};
+
+function sortedClasses() { return [...model.classes].sort((a, b) => (b.value || 0) - (a.value || 0)); }
+function sortedPicks(picks) { return [...picks].sort((a, b) => (b.value || 0) - (a.value || 0)); }
 
 /* ---------- storage ---------- */
 function loadState() {
@@ -375,6 +379,7 @@ function renderClientDynamic() {
   renderRefChart();
   renderBuilderChart();
   renderSubDetailChart();
+  if (activeRefClassId) renderRefDetail();
   updateRValues();
   renderSummaryTable();
 }
@@ -417,21 +422,23 @@ function buildStep1() {
       <div class="board">
         <div>
           <div class="chart-wrap"><canvas id="refChart"></canvas><div class="chart-center" id="refChartCenter"></div></div>
-          <div class="chart-hint">Passe o mouse para detalhes</div>
+          <div class="chart-hint">Clique numa classe para ver as subclasses</div>
         </div>
         <div class="legend" id="refLegend"></div>
       </div>
-    </div>`;
+    </div>
+    <div id="refDetail" class="hidden"></div>`;
 
   const legend = sec.querySelector('#refLegend');
-  model.classes.forEach(c => {
+  sortedClasses().forEach(c => {
     const row = document.createElement('div');
-    row.className = 'leg-row';
+    row.className = 'leg-row' + (activeRefClassId === c.id ? ' active' : '');
     row.innerHTML = `
       <div class="leg-dot" style="background:${c.color}"></div>
       <div class="leg-name">${esc(c.name)}<small>${c.subclasses.length} subclasse(s)</small></div>
       <div class="leg-pct" data-rs-class="${c.value}">${c.value}%<span class="rs"></span></div>
-      <div class="leg-arrow"></div>`;
+      <div class="leg-arrow">›</div>`;
+    row.onclick = () => openRefDetail(c.id);
     legend.appendChild(row);
   });
 
@@ -445,14 +452,80 @@ function buildStep1() {
 }
 
 function renderRefChart() {
-  const items = model.classes.map(c => ({ name: c.name, value: c.value, color: c.color }));
-  renderDonut('refChart', null, items, '', '', null);
-  // center text
+  const sc = sortedClasses();
+  const items = sc.map(c => ({ name: c.name, value: c.value, color: c.color }));
+  renderDonut('refChart', null, items, '', '', idx => openRefDetail(sc[idx].id));
   const cc = document.getElementById('refChartCenter');
   if (cc) {
     const total = client.totalValue || 0;
     cc.innerHTML = `<div class="cc-val">${classTotal()}%</div><div class="cc-label">${total > 0 ? formatBRL(total) : 'Total'}</div>`;
   }
+}
+
+function openRefDetail(classId) {
+  activeRefClassId = classId;
+  document.querySelectorAll('#refLegend .leg-row').forEach((row, i) => {
+    row.classList.toggle('active', sortedClasses()[i].id === classId);
+  });
+  renderRefDetail();
+  document.getElementById('refDetail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function renderRefDetail() {
+  const holder = document.getElementById('refDetail');
+  if (!holder || !activeRefClassId) return;
+  const cls = model.classes.find(c => c.id === activeRefClassId);
+  if (!cls) return;
+  holder.classList.remove('hidden');
+  holder.className = 'card fade-in';
+
+  let subsHtml = '';
+  cls.subclasses.forEach((sc, i) => {
+    const alpha = 1 - i * (0.5 / Math.max(cls.subclasses.length - 1, 1));
+    const scColor = shadeColor(cls.color, 1 - alpha);
+    subsHtml += `
+      <div class="sub-row">
+        <div class="leg-dot" style="background:${scColor}"></div>
+        <span class="nm">${esc(sc.name)}</span>
+        <span class="pv" data-rs-sub="${sc.value}">${sc.value}%<span class="rs"></span></span>
+      </div>`;
+  });
+
+  const subTotal = cls.subclasses.reduce((s, sc) => s + (Number(sc.value) || 0), 0);
+  const classRS = (client.totalValue || 0) * cls.value / 100;
+
+  holder.innerHTML = `
+    <button class="btn btn-sm" id="closeRefDetail" style="margin-bottom:14px"><i data-lucide="arrow-left"></i> Voltar</button>
+    <div class="detail-head"><h3>${esc(cls.name)}</h3><span>${cls.value}% da carteira total${client.totalValue > 0 ? ' · ' + formatBRL(classRS) : ''}</span></div>
+    <div class="detail-grid">
+      <div class="chart-wrap"><canvas id="refSubChart"></canvas><div class="chart-center" id="refSubChartCenter"></div></div>
+      <div>
+        <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Subclasses</h4>
+        ${subsHtml}
+        <div class="sumline ${subTotal === 100 ? '' : 'off'}">
+          <span>Subtotal: <b>${subTotal}%</b>${subTotal !== 100 ? ' — modelo desbalanceado' : ''}</span>
+        </div>
+      </div>
+    </div>`;
+
+  // sub chart
+  const items = cls.subclasses.map((sc, i) => {
+    const alpha = 1 - i * (0.5 / Math.max(cls.subclasses.length - 1, 1));
+    return { name: sc.name, value: sc.value, color: shadeColor(cls.color, 1 - alpha) };
+  });
+  renderDonut('refSubChart', 'refSubChartCenter', items, '', '', null);
+  const cc = document.getElementById('refSubChartCenter');
+  if (cc) cc.innerHTML = `<div class="cc-val">${subTotal}%</div>`;
+
+  holder.querySelector('#closeRefDetail').onclick = () => {
+    activeRefClassId = null;
+    holder.classList.add('hidden');
+    document.querySelectorAll('#refLegend .leg-row').forEach(r => r.classList.remove('active'));
+    destroyChart('refSubChart');
+  };
+
+  if (window.lucide) lucide.createIcons();
+  updateRValues();
 }
 
 /* ----- step 2: example (modal) ----- */
@@ -521,7 +594,7 @@ function buildStep3() {
     <div id="buildDetail" class="hidden"></div>`;
 
   const legend = sec.querySelector('#buildLegend');
-  model.classes.forEach(c => {
+  sortedClasses().forEach(c => {
     const picks = client.picks[c.id] || [];
     const row = document.createElement('div');
     row.className = 'leg-row' + (activeClassId === c.id ? ' active' : '');
@@ -538,8 +611,9 @@ function buildStep3() {
 }
 
 function renderBuilderChart() {
-  const items = model.classes.map(c => ({ name: c.name, value: c.value, color: c.color }));
-  renderDonut('buildChart', null, items, '', '', idx => openBuildDetail(model.classes[idx].id));
+  const sc = sortedClasses();
+  const items = sc.map(c => ({ name: c.name, value: c.value, color: c.color }));
+  renderDonut('buildChart', null, items, '', '', idx => openBuildDetail(sc[idx].id));
   const cc = document.getElementById('buildChartCenter');
   if (cc) {
     const total = client.totalValue || 0;
@@ -617,6 +691,7 @@ function renderBuildDetail() {
   });
 
   holder.innerHTML = `
+    <button class="btn btn-sm" id="backToOverview" style="margin-bottom:14px"><i data-lucide="arrow-left"></i> Voltar à Visão Geral da Carteira</button>
     <div class="detail-head"><h3>${esc(cls.name)}</h3><span>${cls.value}% da carteira total${client.totalValue > 0 ? ' · ' + formatBRL(client.totalValue * cls.value / 100) : ''}</span></div>
     <div class="detail-grid">
       <div class="chart-wrap"><canvas id="subChart"></canvas><div class="chart-center" id="subChartCenter"></div></div>
@@ -628,8 +703,8 @@ function renderBuildDetail() {
     <div class="detail" style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px">
       <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Ativos escolhidos</h4>
       <div id="selList">${selHtml}</div>
-      <div class="sumline ${subTotal === 100 || picks.length === 0 ? '' : 'off'}">
-        <span>Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal !== 100 ? ' — ajuste para 100%' : ''}</span>
+      <div class="sumline ${subTotal > 100 ? 'off' : ''}">
+        <span id="subTotalSpan">Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (picks.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '')}</span>
         <button class="btn btn-sm" data-cid="${cls.id}" data-act="rebalanceAssets">Equilibrar para 100%</button>
       </div>
     </div>
@@ -686,7 +761,14 @@ function renderBuildDetail() {
     const arr = client.picks[cid] || [];
     if (arr.length) { rebalanceItems(arr); saveClient(); renderBuildDetail(); renderSummaryTable(); }
   };
+  holder.querySelector('#backToOverview').onclick = () => {
+    activeClassId = null;
+    holder.classList.add('hidden');
+    document.querySelectorAll('#buildLegend .leg-row').forEach(r => r.classList.remove('active'));
+    destroyChart('subChart');
+  };
 
+  if (window.lucide) lucide.createIcons();
   renderSubDetailChart();
   updateRValues();
 }
@@ -696,14 +778,15 @@ function updateSubTotal(cid) {
   const subTotal = arr.reduce((s, p) => s + (Number(p.value) || 0), 0);
   const sl = document.querySelector('#buildDetail .sumline');
   if (sl) {
-    sl.classList.toggle('off', arr.length > 0 && subTotal !== 100);
-    const b = sl.querySelector('b');
-    if (b) b.textContent = subTotal + '%';
+    sl.classList.toggle('off', arr.length > 0 && subTotal > 100);
+    const msg = arr.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (arr.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '');
+    const span = sl.querySelector('#subTotalSpan');
+    if (span) span.innerHTML = `Subtotal: <b>${subTotal}%</b>${msg}`;
   }
 }
 
 function updateBuildLegendCounts() {
-  model.classes.forEach((c, i) => {
+  sortedClasses().forEach((c, i) => {
     const row = document.querySelectorAll('#buildLegend .leg-row')[i];
     if (row) {
       const picks = client.picks[c.id] || [];
@@ -766,8 +849,8 @@ function renderSummaryTable() {
   let html = '<table class="sum-table"><thead><tr><th>Classe / Ativo</th><th class="num">% classe</th><th class="num">% total</th><th class="num">Valor</th></tr></thead><tbody>';
   let hasPicks = false;
 
-  model.classes.forEach(c => {
-    const picks = client.picks[c.id] || [];
+  sortedClasses().forEach(c => {
+    const picks = sortedPicks(client.picks[c.id] || []);
     if (picks.length === 0) return;
     hasPicks = true;
     const classRS = total * c.value / 100;
@@ -799,8 +882,8 @@ function printPortfolio() {
     <div class="print-sub">Valor total: ${formatBRL(total)} · Gerado em ${new Date().toLocaleDateString('pt-BR')}</div>
     <table class="print-table"><thead><tr><th>Classe / Ativo</th><th class="num">% classe</th><th class="num">% total</th><th class="num">Valor</th></tr></thead><tbody>`;
   let hasPicks = false;
-  model.classes.forEach(c => {
-    const picks = client.picks[c.id] || [];
+  sortedClasses().forEach(c => {
+    const picks = sortedPicks(client.picks[c.id] || []);
     if (picks.length === 0) return;
     hasPicks = true;
     const classRS = total * c.value / 100;
