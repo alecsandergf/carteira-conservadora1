@@ -51,6 +51,11 @@ const EXAMPLE_DATA = [
   { name:'Commodities', value:15, color:'#B8935F', assets:'Ouro 30% · Petróleo 17% · Prata 10% · Gás Natural 10% · Cobre 8% · Caixa 8% · Platina 5% · Milho 4% · Soja 3% · Paládio 3% · Café 2%' }
 ];
 
+/* ---------- helpers ---------- */
+function alertBadge(text) {
+  return `<span class="alert-badge"><i data-lucide="alert-triangle"></i>${text}</span>`;
+}
+
 /* ---------- estado ---------- */
 let model = { classes: [] };
 let client = { totalValue: 0, picks: {} };
@@ -338,6 +343,19 @@ function buildAdminSub(cls, sc) {
    MODO CLIENTE
    ================================================================ */
 function renderClient(app) {
+  // progress steps
+  const steps = document.createElement('div');
+  steps.className = 'steps-bar';
+  steps.innerHTML = `
+    <div class="step"><span class="step-num">1</span><span class="step-label">Alocação sugerida</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">2</span><span class="step-label">Exemplo</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">3</span><span class="step-label">Monte a carteira</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">4</span><span class="step-label">Resumo</span></div>`;
+  app.appendChild(steps);
+
   // investment input
   const inv = document.createElement('div');
   inv.className = 'card invest-card';
@@ -445,7 +463,7 @@ function buildStep1() {
   const total = classTotal();
   const sum = document.createElement('div');
   sum.className = 'sumline';
-  sum.innerHTML = `<span>Total: <b>${total}%</b>${total !== 100 ? ' — modelo desbalanceado' : ''}</span>`;
+  sum.innerHTML = `<span>Total: <b>${total}%</b>${total !== 100 ? alertBadge('modelo desbalanceado') : ''}</span>`;
   legend.appendChild(sum);
 
   return sec;
@@ -503,7 +521,7 @@ function renderRefDetail() {
         <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Subclasses</h4>
         ${subsHtml}
         <div class="sumline ${subTotal === 100 ? '' : 'off'}">
-          <span>Subtotal: <b>${subTotal}%</b>${subTotal !== 100 ? ' — modelo desbalanceado' : ''}</span>
+          <span>Subtotal: <b>${subTotal}%</b>${subTotal !== 100 ? alertBadge('modelo desbalanceado') : ''}</span>
         </div>
       </div>
     </div>`;
@@ -704,7 +722,7 @@ function renderBuildDetail() {
       <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Ativos escolhidos</h4>
       <div id="selList">${selHtml}</div>
       <div class="sumline ${subTotal > 100 ? 'off' : ''}">
-        <span id="subTotalSpan">Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (picks.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '')}</span>
+        <span id="subTotalSpan">Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal > 100 ? alertBadge('ultrapassou 100%') : (picks.length > 0 && subTotal < 100 ? alertBadge('faltam ' + (100 - subTotal) + '%') : '')}</span>
         <button class="btn btn-sm" data-cid="${cls.id}" data-act="rebalanceAssets">Equilibrar para 100%</button>
       </div>
     </div>
@@ -779,9 +797,10 @@ function updateSubTotal(cid) {
   const sl = document.querySelector('#buildDetail .sumline');
   if (sl) {
     sl.classList.toggle('off', arr.length > 0 && subTotal > 100);
-    const msg = arr.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (arr.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '');
+    const msg = arr.length > 0 && subTotal > 100 ? alertBadge('ultrapassou 100%') : (arr.length > 0 && subTotal < 100 ? alertBadge('faltam ' + (100 - subTotal) + '%') : '');
     const span = sl.querySelector('#subTotalSpan');
     if (span) span.innerHTML = `Subtotal: <b>${subTotal}%</b>${msg}`;
+    if (window.lucide) lucide.createIcons();
   }
 }
 
