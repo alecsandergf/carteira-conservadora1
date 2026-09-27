@@ -76,6 +76,8 @@ function loadState() {
   catch { client = { totalValue: 0, picks: {} }; }
   mode = localStorage.getItem(STORAGE.mode) || 'client';
   if (new URLSearchParams(location.search).get('admin') === '1') mode = 'admin';
+  const _auth = getAuth();
+  if (_auth && _auth.role !== 'admin') mode = 'client';
 }
 function saveModel() { localStorage.setItem(STORAGE.model, JSON.stringify(model)); }
 function saveClient() { localStorage.setItem(STORAGE.client, JSON.stringify(client)); }
@@ -169,6 +171,9 @@ function render() {
 function updateModeBadge() {
   const badge = document.getElementById('modeBadge');
   if (!badge) return;
+  const _auth = getAuth();
+  if (_auth && _auth.role !== 'admin') { badge.style.display = 'none'; return; }
+  badge.style.display = '';
   badge.textContent = mode === 'admin' ? 'Modo Admin' : 'Modo Cliente';
   badge.classList.toggle('admin', mode === 'admin');
 }
@@ -377,7 +382,10 @@ function renderClient(app) {
   inp.addEventListener('blur', () => {
     inp.value = client.totalValue > 0 ? formatBRLPlain(client.totalValue) : '';
   });
-  inv.querySelector('[data-act="goAdmin"]').onclick = () => { mode = 'admin'; saveMode(); render(); };
+  const goAdminBtn = inv.querySelector('[data-act="goAdmin"]');
+  const _auth = getAuth();
+  if (!_auth || _auth.role !== 'admin') goAdminBtn.style.display = 'none';
+  else goAdminBtn.onclick = () => { mode = 'admin'; saveMode(); render(); };
 
   // step 1: reference
   app.appendChild(buildStep1());
@@ -927,6 +935,55 @@ function printPortfolio() {
 }
 
 /* ================================================================
+   AUTENTICAÇÃO
+   ================================================================ */
+const AUTH_KEY = 'alloc_auth_v1';
+function getAuth() { try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch { return null; } }
+function setAuth(role) { localStorage.setItem(AUTH_KEY, JSON.stringify({ role, ts: Date.now() })); }
+
+function showAuthScreen() {
+  const overlay = document.createElement('div');
+  overlay.className = 'auth-overlay';
+  overlay.innerHTML = `
+    <div class="auth-card">
+      <h2>Alocação de Referência</h2>
+      <p>Digite a senha para acessar</p>
+      <form id="authForm">
+        <input type="password" id="authPassword" placeholder="Senha" autocomplete="off" autofocus>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        <div class="auth-error" id="authError"></div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  const form = overlay.querySelector('#authForm');
+  const errorEl = overlay.querySelector('#authError');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = overlay.querySelector('#authPassword').value;
+    errorEl.textContent = '';
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAuth(data.role);
+        overlay.remove();
+        startApp(getAuth());
+      } else {
+        errorEl.textContent = 'Senha incorreta';
+        const inp = overlay.querySelector('#authPassword');
+        inp.value = ''; inp.focus();
+      }
+    } catch {
+      errorEl.textContent = 'Erro ao conectar ao servidor';
+    }
+  });
+}
+
+/* ================================================================
    INIT
    ================================================================ */
 function initTheme() {
@@ -941,15 +998,23 @@ function initTheme() {
   };
 }
 
-function init() {
+function startApp(auth) {
   loadState();
+  if (auth.role !== 'admin') mode = 'client';
   initTheme();
   render();
   document.getElementById('modeBadge').onclick = () => {
+    if (auth.role !== 'admin') return;
     mode = mode === 'admin' ? 'client' : 'admin';
     saveMode();
     render();
   };
+}
+
+function init() {
+  const auth = getAuth();
+  if (!auth) { showAuthScreen(); return; }
+  startApp(auth);
 }
 
 document.addEventListener('DOMContentLoaded', init);
