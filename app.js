@@ -51,6 +51,11 @@ const EXAMPLE_DATA = [
   { name:'Commodities', value:15, color:'#B8935F', assets:'Ouro 30% · Petróleo 17% · Prata 10% · Gás Natural 10% · Cobre 8% · Caixa 8% · Platina 5% · Milho 4% · Soja 3% · Paládio 3% · Café 2%' }
 ];
 
+/* ---------- helpers ---------- */
+function alertBadge(text) {
+  return `<span class="alert-badge"><i data-lucide="alert-triangle"></i>${text}</span>`;
+}
+
 /* ---------- estado ---------- */
 let model = { classes: [] };
 let client = { totalValue: 0, picks: {} };
@@ -71,6 +76,8 @@ function loadState() {
   catch { client = { totalValue: 0, picks: {} }; }
   mode = localStorage.getItem(STORAGE.mode) || 'client';
   if (new URLSearchParams(location.search).get('admin') === '1') mode = 'admin';
+  const _auth = getAuth();
+  if (_auth && _auth.role !== 'admin') mode = 'client';
 }
 function saveModel() { localStorage.setItem(STORAGE.model, JSON.stringify(model)); }
 function saveClient() { localStorage.setItem(STORAGE.client, JSON.stringify(client)); }
@@ -164,6 +171,9 @@ function render() {
 function updateModeBadge() {
   const badge = document.getElementById('modeBadge');
   if (!badge) return;
+  const _auth = getAuth();
+  if (_auth && _auth.role !== 'admin') { badge.style.display = 'none'; return; }
+  badge.style.display = '';
   badge.textContent = mode === 'admin' ? 'Modo Admin' : 'Modo Cliente';
   badge.classList.toggle('admin', mode === 'admin');
 }
@@ -338,6 +348,19 @@ function buildAdminSub(cls, sc) {
    MODO CLIENTE
    ================================================================ */
 function renderClient(app) {
+  // progress steps
+  const steps = document.createElement('div');
+  steps.className = 'steps-bar';
+  steps.innerHTML = `
+    <div class="step"><span class="step-num">1</span><span class="step-label">Alocação sugerida</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">2</span><span class="step-label">Exemplo</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">3</span><span class="step-label">Monte a carteira</span></div>
+    <div class="step-line"></div>
+    <div class="step"><span class="step-num">4</span><span class="step-label">Resumo</span></div>`;
+  app.appendChild(steps);
+
   // investment input
   const inv = document.createElement('div');
   inv.className = 'card invest-card';
@@ -359,7 +382,10 @@ function renderClient(app) {
   inp.addEventListener('blur', () => {
     inp.value = client.totalValue > 0 ? formatBRLPlain(client.totalValue) : '';
   });
-  inv.querySelector('[data-act="goAdmin"]').onclick = () => { mode = 'admin'; saveMode(); render(); };
+  const goAdminBtn = inv.querySelector('[data-act="goAdmin"]');
+  const _auth = getAuth();
+  if (!_auth || _auth.role !== 'admin') goAdminBtn.style.display = 'none';
+  else goAdminBtn.onclick = () => { mode = 'admin'; saveMode(); render(); };
 
   // step 1: reference
   app.appendChild(buildStep1());
@@ -445,7 +471,7 @@ function buildStep1() {
   const total = classTotal();
   const sum = document.createElement('div');
   sum.className = 'sumline';
-  sum.innerHTML = `<span>Total: <b>${total}%</b>${total !== 100 ? ' — modelo desbalanceado' : ''}</span>`;
+  sum.innerHTML = `<span>Total: <b>${total}%</b>${total !== 100 ? alertBadge('modelo desbalanceado') : ''}</span>`;
   legend.appendChild(sum);
 
   return sec;
@@ -503,7 +529,7 @@ function renderRefDetail() {
         <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">Subclasses</h4>
         ${subsHtml}
         <div class="sumline ${subTotal === 100 ? '' : 'off'}">
-          <span>Subtotal: <b>${subTotal}%</b>${subTotal !== 100 ? ' — modelo desbalanceado' : ''}</span>
+          <span>Subtotal: <b>${subTotal}%</b>${subTotal !== 100 ? alertBadge('modelo desbalanceado') : ''}</span>
         </div>
       </div>
     </div>`;
@@ -625,7 +651,7 @@ function openBuildDetail(classId) {
   activeClassId = classId;
   // update legend active states
   document.querySelectorAll('#buildLegend .leg-row').forEach((row, i) => {
-    row.classList.toggle('active', model.classes[i].id === classId);
+    row.classList.toggle('active', sortedClasses()[i].id === classId);
   });
   renderBuildDetail();
 }
@@ -704,7 +730,7 @@ function renderBuildDetail() {
       <h4 style="font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;margin-bottom:10px">Ativos escolhidos</h4>
       <div id="selList">${selHtml}</div>
       <div class="sumline ${subTotal > 100 ? 'off' : ''}">
-        <span id="subTotalSpan">Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (picks.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '')}</span>
+        <span id="subTotalSpan">Subtotal: <b>${subTotal}%</b>${picks.length > 0 && subTotal > 100 ? alertBadge('ultrapassou 100%') : (picks.length > 0 && subTotal < 100 ? alertBadge('faltam ' + (100 - subTotal) + '%') : '')}</span>
         <button class="btn btn-sm" data-cid="${cls.id}" data-act="rebalanceAssets">Equilibrar para 100%</button>
       </div>
     </div>
@@ -779,9 +805,10 @@ function updateSubTotal(cid) {
   const sl = document.querySelector('#buildDetail .sumline');
   if (sl) {
     sl.classList.toggle('off', arr.length > 0 && subTotal > 100);
-    const msg = arr.length > 0 && subTotal > 100 ? ' — ultrapassou 100%!' : (arr.length > 0 && subTotal < 100 ? ' — faltam ' + (100 - subTotal) + '%' : '');
+    const msg = arr.length > 0 && subTotal > 100 ? alertBadge('ultrapassou 100%') : (arr.length > 0 && subTotal < 100 ? alertBadge('faltam ' + (100 - subTotal) + '%') : '');
     const span = sl.querySelector('#subTotalSpan');
     if (span) span.innerHTML = `Subtotal: <b>${subTotal}%</b>${msg}`;
+    if (window.lucide) lucide.createIcons();
   }
 }
 
@@ -908,6 +935,55 @@ function printPortfolio() {
 }
 
 /* ================================================================
+   AUTENTICAÇÃO
+   ================================================================ */
+const AUTH_KEY = 'alloc_auth_v1';
+function getAuth() { try { return JSON.parse(localStorage.getItem(AUTH_KEY)); } catch { return null; } }
+function setAuth(role) { localStorage.setItem(AUTH_KEY, JSON.stringify({ role, ts: Date.now() })); }
+
+function showAuthScreen() {
+  const overlay = document.createElement('div');
+  overlay.className = 'auth-overlay';
+  overlay.innerHTML = `
+    <div class="auth-card">
+      <h2>Alocação de Referência</h2>
+      <p>Digite a senha para acessar</p>
+      <form id="authForm">
+        <input type="password" id="authPassword" placeholder="Senha" autocomplete="off" autofocus>
+        <button type="submit" class="btn btn-primary btn-block">Entrar</button>
+        <div class="auth-error" id="authError"></div>
+      </form>
+    </div>`;
+  document.body.appendChild(overlay);
+  const form = overlay.querySelector('#authForm');
+  const errorEl = overlay.querySelector('#authError');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = overlay.querySelector('#authPassword').value;
+    errorEl.textContent = '';
+    try {
+      const res = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setAuth(data.role);
+        overlay.remove();
+        startApp(getAuth());
+      } else {
+        errorEl.textContent = 'Senha incorreta';
+        const inp = overlay.querySelector('#authPassword');
+        inp.value = ''; inp.focus();
+      }
+    } catch {
+      errorEl.textContent = 'Erro ao conectar ao servidor';
+    }
+  });
+}
+
+/* ================================================================
    INIT
    ================================================================ */
 function initTheme() {
@@ -922,15 +998,23 @@ function initTheme() {
   };
 }
 
-function init() {
+function startApp(auth) {
   loadState();
+  if (auth.role !== 'admin') mode = 'client';
   initTheme();
   render();
   document.getElementById('modeBadge').onclick = () => {
+    if (auth.role !== 'admin') return;
     mode = mode === 'admin' ? 'client' : 'admin';
     saveMode();
     render();
   };
+}
+
+function init() {
+  const auth = getAuth();
+  if (!auth) { showAuthScreen(); return; }
+  startApp(auth);
 }
 
 document.addEventListener('DOMContentLoaded', init);

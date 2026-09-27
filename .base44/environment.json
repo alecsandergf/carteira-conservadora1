@@ -2,5 +2,18 @@
   "previewPort": 3000,
   "healthPath": "/",
   "startCommand": "docker compose -f docker-compose.base44.yml up -d",
-  "secrets": []
+  "secrets": [
+    {
+      "name": "AUTH_VISITOR_PASSWORD",
+      "description": "Senha de visitante (acesso apenas à ferramenta de carteira, sem admin). Definir no dashboard de Secrets.",
+      "requiredAtBoot": true,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "AUTH_ADMIN_PASSWORD",
+      "description": "Senha de admin (acesso total, incluindo edição de alocações e configurações). Definir no dashboard de Secrets.",
+      "requiredAtBoot": true,
+      "generatedForDevelopment": true
+    }
+  ]
 }
