@@ -625,7 +625,7 @@ function openBuildDetail(classId) {
   activeClassId = classId;
   // update legend active states
   document.querySelectorAll('#buildLegend .leg-row').forEach((row, i) => {
-    row.classList.toggle('active', model.classes[i].id === classId);
+    row.classList.toggle('active', sortedClasses()[i].id === classId);
   });
   renderBuildDetail();
 }
