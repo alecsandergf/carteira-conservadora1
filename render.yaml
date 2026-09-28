@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: alocacao-referencia
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: AUTH_ADMIN_PASSWORD
+        sync: false
+      - key: AUTH_VISITOR_PASSWORD
+        sync: false
