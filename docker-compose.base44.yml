@@ -14,6 +14,7 @@ services:
     working_dir: /app
     volumes:
       - ./server.js:/app/server.js:ro
+      - ./api:/app/api:ro
     env_file:
       - ./.env.base44-defaults
       - /run/base44/app.env

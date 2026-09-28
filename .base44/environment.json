@@ -14,6 +14,24 @@
       "description": "Senha de admin (acesso total, incluindo edição de alocações e configurações). Definir no dashboard de Secrets.",
       "requiredAtBoot": true,
       "generatedForDevelopment": true
+    },
+    {
+      "name": "SUPABASE_URL",
+      "description": "URL do projeto Supabase (dashboard > Settings > API > Project URL). Ex: https://xxxx.supabase.co",
+      "requiredAtBoot": false,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "SUPABASE_ANON_KEY",
+      "description": "Chave anônima do Supabase (dashboard > Settings > API > anon public). Usada para leitura pública do modelo.",
+      "requiredAtBoot": false,
+      "generatedForDevelopment": true
+    },
+    {
+      "name": "SUPABASE_SERVICE_ROLE_KEY",
+      "description": "Chave service_role do Supabase (dashboard > Settings > API > service_role). Usada apenas no backend para salvar o modelo. NUNCA expor no frontend.",
+      "requiredAtBoot": false,
+      "generatedForDevelopment": true
     }
   ]
 }
